@@ -21,6 +21,7 @@ from pathlib import Path
 from benchkit.core.benchmark import Benchmark
 from benchkit.core.bktypes import RecordResult, Vars
 from benchkit.core.validatebench import validate_benchmark
+from benchkit.engine.attachments import Attachments
 from benchkit.engine.executor import LocalExecutor
 from benchkit.engine.stepper import Stepper
 from benchkit.platforms import get_current_platform
@@ -50,6 +51,7 @@ class RunOnceEngine:
         args: Vars,
         duration_s: int | None = None,
         record_dir: Path | None = None,
+        attachments: Attachments | None = None,
     ) -> RecordResult:
         log = get_logger("engine.runonce")
         validate_benchmark(bench=bench)
@@ -65,7 +67,11 @@ class RunOnceEngine:
         session = stepper.build(session=session, args=args)
         log.debug("Running...")
         session = stepper.run(
-            session=session, args=args, duration_s=duration_s, record_dir=record_dir
+            session=session,
+            args=args,
+            duration_s=duration_s,
+            record_dir=record_dir,
+            attachments=attachments,
         )
         log.debug("Collecting...")
         session = stepper.collect(session=session, args=args)
@@ -96,6 +102,7 @@ def run_once(
     args: Vars,
     duration_s: int | None = None,
     record_dir: Path | None = None,
+    attachments: Attachments | None = None,
 ) -> RecordResult:
     engine = RunOnceEngine()
     result = engine.run_once(
@@ -103,5 +110,6 @@ def run_once(
         args=args,
         duration_s=duration_s,
         record_dir=record_dir,
+        attachments=attachments,
     )
     return result

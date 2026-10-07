@@ -28,6 +28,7 @@ from benchkit.core.benchmark import Benchmark
 from benchkit.core.bktypes import RecordResult, Vars
 from benchkit.core.bktypes.callresults import BuildResult, FetchResult, RunResult
 from benchkit.core.bktypes.contexts import BuildContext, CollectContext, FetchContext, RunContext
+from benchkit.engine.attachments import Attachments
 from benchkit.platforms import Platform
 
 RunCtxTransform = Callable[[RunContext], RunContext]
@@ -168,6 +169,7 @@ class Stepper:
         *,
         record_dir: Path | None = None,
         ctx_transform: RunCtxTransform | None = None,
+        attachments: Attachments | None = None,
     ) -> StepSession:
         run_args, default_args = _get_step_args(step_fn=self.bench.run, args=args)
         run_ctx = RunContext.from_build(
@@ -178,6 +180,9 @@ class Stepper:
             duration_s=duration_s,
             record_dir=record_dir,
         )
+
+        if attachments is not None:
+            run_ctx = attachments.attach(run_ctx=run_ctx, platform=self.platform)
 
         if ctx_transform is not None:
             run_ctx = ctx_transform(run_ctx)

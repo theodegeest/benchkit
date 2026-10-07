@@ -306,7 +306,57 @@ The engine may later ensure they are installed.
 
 ---
 
-## 12. Design philosophy
+## 12. Command attachments
+
+Attachments observe the benchmark process **while it is running**: profilers,
+tracers, or monitors that need a live process and a place to store their
+artifacts. Attachments are not part of the benchmark class; they are supplied
+to the engine (or to the compat campaign factories) and are attached to every
+command executed through `ctx.exec(...)`:
+
+```python
+from benchkit.engine.attachments import Attachments
+
+attachments = Attachments(attachments=[MyAttachment()])
+result = run_once(bench=MyBenchmark(), args={"threads": 4}, attachments=attachments)
+```
+
+An attachment is any callable with the following shape:
+
+```python
+def __call__(self, process: AsyncProcess, record_data_dir: Path | None) -> None: ...
+```
+
+It receives the live process — with its `pid`, and signals available through
+`process.send_signal(...)` — and the per-run record directory where it should
+store its outputs. The engine spawns the benchmark command once, calls all
+attachments in the order they are given, and then waits for the benchmark to
+finish. Attachments typically spawn their own side-processes, so their
+monitoring runs concurrently with the benchmark while the ordered installation
+is preserved.
+
+When the same benchmark is run through the legacy campaign engine, pass the
+attachments to the `benchkit.core.compat.new2old` factories:
+
+```python
+from benchkit.core.compat.new2old import CampaignCartesianProduct
+
+campaign = CampaignCartesianProduct(
+    benchmark=MyBenchmark(),
+    variables={"threads": [1, 2, 4]},
+    command_attachments=[MyAttachment()],
+)
+campaign.run()
+```
+
+Attachments compose with command wrappers and shared libraries: the wrapped
+command is what gets instrumented, so an attachment always observes the same
+command line as the benchmark. As with wrappers, this only works for commands
+that go through `ctx.exec(...)` (see the golden rule in §2).
+
+---
+
+## 13. Design philosophy
 
 * explicit over implicit
 * readable over clever
@@ -325,11 +375,11 @@ A benchmark is just Python.
 
 ---
 
-## 13. Recommended next steps
+## 14. Recommended next steps
 
 * start from an existing benchmark and port it step by step
 * test stages independently using `.call()`
-* add wrappers and attachments later, benchmarks do not need to care
+* add wrappers and attachments later, benchmarks do not need to care (see §12)
 * keep parsing logic in collect, not in run
 
 Happy benchmarking 🚀

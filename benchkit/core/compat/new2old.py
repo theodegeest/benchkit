@@ -53,10 +53,11 @@ What works today
 - `pre_run_hooks` and `post_run_hooks` (hook invocation remains owned by the legacy engine).
 - `CommandWrapper` and `SharedLib` (`LD_PRELOAD`) support **provided the benchmark uses**
   `ctx.exec(...)` to run external commands.
+- `CommandAttachment` support: attachments are attached to every command executed
+  through `ctx.exec(...)` (see `benchkit.engine.attachments`).
 
 Known limitations (important)
 -----------------------------
-- **CommandAttachment is not supported** (attachments often rely on async side processes).
 - **Async execution is not supported**; this adapter returns synchronous stdout-like outputs.
 - **Only commands executed through `ctx.exec` are wrappable**. If a benchmark uses
   `subprocess.*` directly (or otherwise bypasses `ctx.exec`), wrappers/sharedlibs
@@ -132,6 +133,7 @@ from benchkit.core.benchmark import Benchmark
 from benchkit.core.bktypes.contexts import RunContext
 from benchkit.core.bktypes.execfn import ExecFn, ExecOutput
 from benchkit.core.validatebench import validate_benchmark
+from benchkit.engine.attachments import Attachments
 from benchkit.engine.stepper import Stepper
 from benchkit.platforms import Platform
 from benchkit.shell.shellasync import AsyncProcess
@@ -303,24 +305,25 @@ class Adapted(BenchmarkOld):
         Args:
             benchmark: New-protocol benchmark implementing fetch/build/run/collect.
             command_wrappers: Command wrappers (applied through `RunContext.exec`).
-            command_attachments: Command attachments (not supported in this adapter).
+            command_attachments: Command attachments (attached to every command executed
+                through `RunContext.exec`; see `benchkit.engine.attachments`).
             shared_libs: Shared libs (LD_PRELOAD injection; applied through `RunContext.exec`).
             pre_run_hooks: Pre-run hooks (executed by the legacy engine).
             post_run_hooks: Post-run hooks (executed by the legacy engine).
             platform: Optional platform override for the legacy benchmark.
         """
-        if command_attachments:
-            raise NotImplementedError(
-                "Command attachments are not currently supported by this adapter."
-            )
-
         super().__init__(
             command_wrappers=command_wrappers,
-            command_attachments=command_attachments,
+            command_attachments=(),
             shared_libs=shared_libs,
             pre_run_hooks=pre_run_hooks,
             post_run_hooks=post_run_hooks,
         )
+        # Keep the new-API attachments under a dedicated attribute: the legacy engine
+        # owns `_command_attachments` and must not see them (it would switch to its
+        # own async execution path, which is incompatible with this adapter).
+        self._new_api_attachments = tuple(command_attachments)
+
         if platform is not None:
             self.platform = platform
 
@@ -453,6 +456,7 @@ class Adapted(BenchmarkOld):
             duration_s=duration_s,
             record_dir=record_data_dir,
             ctx_transform=_transform_run_ctx,
+            attachments=Attachments(attachments=self._new_api_attachments),
         )
         return self._last_session_run.run_result.outputs[-1].stdout
 
@@ -498,6 +502,7 @@ def CampaignCartesianProduct(
     post_run_hooks: Iterable[PostRunHook] = (),
     pretty: Pretty | None = None,
     platform: Platform | None = None,
+    symlink_latest: bool = False,
 ) -> CampaignCartesianProductOld:
     """
     Create a legacy cartesian-product campaign for a new-protocol benchmark.
@@ -518,12 +523,14 @@ def CampaignCartesianProduct(
         results_dir: Optional base directory for results.
         tmp_dir: Optional directory where temporary campaign files are stored.
         command_wrappers: Legacy command wrappers (applied via `RunContext.exec` interception).
-        command_attachments: Legacy command attachments (not supported).
+        command_attachments: Legacy command attachments (attached to every command executed
+            through `RunContext.exec`).
         shared_libs: Legacy shared libs (applied via `RunContext.exec` interception).
         pre_run_hooks: Legacy pre-run hooks (supported; executed by legacy engine).
         post_run_hooks: Legacy post-run hooks (supported; executed by legacy engine).
         pretty: Pretty-printing mapping of variables for campaign results.
         platform: Optional platform override.
+        symlink_latest: Whether to create/update a `latest` symlink to the campaign results.
 
     Returns:
         A legacy campaign object ready to run.
@@ -562,7 +569,7 @@ def CampaignCartesianProduct(
         tmp_dir=tmp_dir,
         pretty=pretty,
         filter_func=None,
-        symlink_latest=False,
+        symlink_latest=symlink_latest,
     )
 
 
@@ -582,6 +589,7 @@ def CampaignIterateVariables(
     pretty: Pretty | None = None,
     platform: Platform | None = None,
     tmp_dir: Path | None = None,
+    symlink_latest: bool = False,
 ) -> CampaignIterateVariablesOld:
     """
     Create a legacy iterate-variables campaign for a new-protocol benchmark.
@@ -605,12 +613,15 @@ def CampaignIterateVariables(
             `benchmark_duration_seconds` and forwarded to the new run context as `duration_s`.
         results_dir: Optional base directory for results.
         command_wrappers: Legacy command wrappers (applied via `RunContext.exec` interception).
-        command_attachments: Legacy command attachments (not supported).
+        command_attachments: Legacy command attachments (attached to every command executed
+            through `RunContext.exec`).
         shared_libs: Legacy shared libs (applied via `RunContext.exec` interception).
         pre_run_hooks: Legacy pre-run hooks (supported; executed by legacy engine).
         post_run_hooks: Legacy post-run hooks (supported; executed by legacy engine).
         pretty: Pretty-printing mapping of variables for campaign results.
         platform: Optional platform override.
+        tmp_dir: Optional directory where temporary campaign files are stored.
+        symlink_latest: Whether to create/update a `latest` symlink to the campaign results.
 
     Returns:
         A legacy campaign object ready to run.
@@ -660,5 +671,5 @@ def CampaignIterateVariables(
         results_dir=results_dir,
         tmp_dir=tmp_dir,
         pretty=pretty,
-        symlink_latest=False,
+        symlink_latest=symlink_latest,
     )

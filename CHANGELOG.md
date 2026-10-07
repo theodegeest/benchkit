@@ -5,6 +5,18 @@ All notable changes to benchkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **New API: command attachments.** `benchkit.engine.attachments.Attachments`
+  instruments every command executed through `ctx.exec(...)`: the engine
+  spawns the command asynchronously, calls the attachments in order with the
+  live process and the per-run record directory, and then waits for the
+  command. Wired into `RunOnceEngine`/`run_once`, `Stepper.run`, and the
+  `benchkit.core.compat.new2old` campaign factories, which now support
+  `command_attachments` and a `symlink_latest` option.
+
 ## [0.0.2] - 2026-05-05
 
 This release accumulates 20 months of development since `0.0.1` (200+ merged PRs),
