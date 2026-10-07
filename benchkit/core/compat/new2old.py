@@ -133,6 +133,7 @@ from benchkit.core.benchmark import Benchmark
 from benchkit.core.bktypes.contexts import RunContext
 from benchkit.core.bktypes.execfn import ExecFn, ExecOutput
 from benchkit.core.validatebench import validate_benchmark
+from benchkit.dependencies.packages import PackageDependency
 from benchkit.engine.attachments import Attachments
 from benchkit.engine.stepper import Stepper
 from benchkit.platforms import Platform
@@ -391,6 +392,19 @@ class Adapted(BenchmarkOld):
         Derived from the new benchmark's `run()` signature.
         """
         return _get_params(step_fn=self.benchmark.run)
+
+    def dependencies(self) -> List[PackageDependency]:
+        """
+        Return the union of the legacy and the wrapped benchmark dependencies.
+
+        The legacy engine aggregates shared-library and command-wrapper dependencies;
+        the wrapped new-protocol benchmark contributes its own static `dependencies()`.
+        """
+        base_dependencies = super().dependencies()
+        inner_dependencies = getattr(self.benchmark, "dependencies", None)
+        if inner_dependencies is None:
+            return base_dependencies
+        return base_dependencies + inner_dependencies()
 
     def build_bench(self, **kwargs) -> None:
         """

@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   forwarded to the command's standard input on both the synchronous and the
   attachment-instrumented execution paths. `AsyncProcess`/`shell_async`/
   `background_subprocess` support stdin for local and SSH platforms.
+- **New API: benchmark dependencies through the compat layer.** The
+  `new2old` adapter now forwards a wrapped benchmark's static `dependencies()`
+  to the legacy dependency check, so `check_dependencies()` on an adapted
+  campaign reports the requirements of the new-protocol benchmark as well.
 
 ## [0.0.2] - 2026-05-05
 
