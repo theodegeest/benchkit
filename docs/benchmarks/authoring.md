@@ -354,6 +354,16 @@ command is what gets instrumented, so an attachment always observes the same
 command line as the benchmark. As with wrappers, this only works for commands
 that go through `ctx.exec(...)` (see the golden rule in §2).
 
+Commands can also be fed standard input by passing a file path:
+
+```python
+out = ctx.exec(argv=["./solver", "config.txt"], stdin=Path("input.txt"))
+```
+
+The content of the file is read and forwarded to the command's standard input.
+This works on the synchronous path as well as for attachment-instrumented
+commands (local and SSH platforms).
+
 ---
 
 ## 13. Design philosophy

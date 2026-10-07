@@ -35,6 +35,7 @@ class AsyncProcess:
         stderr_path: PathType,
         current_dir: Optional[PathType] = None,
         environment: Environment = None,
+        stdin_path: Optional[PathType] = None,
         ignore_ret_codes: Iterable[int] = (),
     ):
         self._platform = platform
@@ -44,6 +45,7 @@ class AsyncProcess:
 
         self._stderr_handle = open(stderr_path, "w")
         self._stdout_handle = open(stdout_path, "w")
+        self._stdin_handle = open(stdin_path, "r") if stdin_path is not None else None
         self._error_code = None
         self._ignore_ret_codes = ignore_ret_codes
 
@@ -53,6 +55,7 @@ class AsyncProcess:
             stderr=self._stderr_handle,
             cwd=current_dir,
             env=environment,
+            stdin=self._stdin_handle,
             establish_new_connection=True,
         )
 
@@ -128,6 +131,8 @@ class AsyncProcess:
 
         self._stdout_handle.close()
         self._stderr_handle.close()
+        if self._stdin_handle is not None:
+            self._stdin_handle.close()
 
         if 0 != self._error_code and self._error_code not in self._ignore_ret_codes:
             _flush()
@@ -207,6 +212,9 @@ class AsyncProcess:
         os.killpg(os.getpgid(self._process.pid), signal.SIGTERM)
         self._process.wait()
 
+        if self._stdin_handle is not None:
+            self._stdin_handle.close()
+
     def output(self) -> str:
         """
         Return the output of the process, possibly waiting for its completion.
@@ -246,6 +254,7 @@ def shell_async(
     platform: Platform,
     current_dir: Optional[PathType] = None,
     environment: Environment = None,
+    stdin_path: Optional[PathType] = None,
     ignore_ret_codes: Iterable[int] = (),
     print_input: bool = True,
     print_env: bool = True,
@@ -270,6 +279,9 @@ def shell_async(
             Defaults to None.
         environment (Environment, optional):
             environment variables to pass to the command.
+            Defaults to None.
+        stdin_path (Optional[PathType], optional):
+            path to a file whose content is fed to the command's standard input.
             Defaults to None.
         print_input (bool, optional):
             whether to print the command. TODO should be renamed "print_command"
@@ -318,6 +330,7 @@ def shell_async(
         stderr_path=stderr_path,
         current_dir=current_dir,
         environment=environment,
+        stdin_path=stdin_path,
         ignore_ret_codes=ignore_ret_codes,
     )
 

@@ -96,6 +96,7 @@ class Attachments:
             argv: Argv,
             cwd: Path | None = None,
             env: Env | None = None,
+            stdin: Path | None = None,
             timeout_s: int | None = None,
             record_dir: Path | None = None,
             print_output: bool = False,
@@ -132,6 +133,7 @@ class Attachments:
                     platform=platform,
                     current_dir=cwd,
                     environment=env,
+                    stdin_path=stdin,
                     ignore_ret_codes=tuple(ignore_ret_codes),
                 )
                 for attachment in attachments:

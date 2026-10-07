@@ -194,6 +194,7 @@ class CommunicationLayer:
         stderr: PathType,
         cwd: PathType | None,
         env: dict | None,
+        stdin=None,
         establish_new_connection: bool = False,
     ) -> subprocess.Popen:
         """Start a background process with the provided command.
@@ -209,6 +210,9 @@ class CommunicationLayer:
                 working directory of the background command to run.
             env (dict | None):
                 environment variables to pass to the command to run.
+            stdin (optional):
+                file handle to feed to the standard input of the command.
+                Defaults to None.
             establish_new_connection (bool, optional):
                 whether to establish a new connection to the background process.
 
@@ -624,6 +628,7 @@ class LocalCommLayer(CommunicationLayer):
         stderr: PathType,
         cwd: PathType | None,
         env: dict | None,
+        stdin=None,
         establish_new_connection: bool = False,
     ) -> subprocess.Popen:
         # Create background process in its own group id using os.setsid
@@ -632,6 +637,7 @@ class LocalCommLayer(CommunicationLayer):
             command,
             stdout=stdout,
             stderr=stderr,
+            stdin=stdin,
             cwd=cwd,
             env=env,
             preexec_fn=os.setsid,
@@ -791,6 +797,7 @@ class SSHCommLayer(CommunicationLayer):
         stderr: PathType,
         cwd: PathType | None,
         env: dict | None,
+        stdin=None,
         establish_new_connection: bool = False,
     ) -> subprocess.Popen:
         full_command = self._remote_shell_command(
@@ -805,6 +812,7 @@ class SSHCommLayer(CommunicationLayer):
             full_command,
             stdout=stdout,
             stderr=stderr,
+            stdin=stdin,
             env=env,
             preexec_fn=os.setsid,
         )

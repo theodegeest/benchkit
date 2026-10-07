@@ -33,6 +33,7 @@ class ShellFn(Protocol):
         command: Argv,
         current_dir: Path | None = None,
         environment: Env | None = None,
+        std_input: str | None = None,
         timeout: int | None = None,
         print_output: bool = True,
         output_is_log: bool = False,
@@ -46,6 +47,7 @@ class ShellFn(Protocol):
             command: Command to execute (list of args or shell string).
             current_dir: Working directory for execution.
             environment: Environment variables (None = inherit).
+            std_input: Content fed to the command's standard input (None = no input).
             timeout: Timeout in seconds (None = no timeout).
             print_output: Whether to print output to console.
             output_is_log: Whether to treat output as log messages.

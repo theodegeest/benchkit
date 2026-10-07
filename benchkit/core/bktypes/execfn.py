@@ -69,6 +69,7 @@ class ExecFn(Protocol):
         argv: Argv,
         cwd: Path | None = None,
         env: Env | None = None,
+        stdin: Path | None = None,
         timeout_s: int | None = None,
         record_dir: Path | None = None,
         print_output: bool = False,
@@ -83,6 +84,8 @@ class ExecFn(Protocol):
             argv: Command and arguments (list of strings or single shell string).
             cwd: Working directory for command execution.
             env: Environment variables (None = inherit current environment).
+            stdin: Path to a file whose content is fed to the command's standard
+                input (None = no input).
             timeout_s: Maximum execution time in seconds (None = no timeout).
             record_dir: Directory to save output files (None = don't save).
             print_output: Whether to print output to console in real-time.
@@ -126,6 +129,7 @@ def shell2exec(shell_fun: ShellFn) -> ExecFn:
         argv: Argv,
         cwd: Path | None = None,
         env: Env | None = None,
+        stdin: Path | None = None,
         timeout_s: int | None = None,
         record_dir: Path | None = None,
         print_output: bool = False,
@@ -133,11 +137,13 @@ def shell2exec(shell_fun: ShellFn) -> ExecFn:
         ignore_ret_codes: tuple[int, ...] = (),
         ignore_any_error_code: bool = False,
     ) -> ExecOutput:
+        std_input = Path(stdin).read_text() if stdin is not None else None
         with TimeMeasure() as tm:
             out = shell_fun(
                 command=argv,
                 current_dir=cwd,
                 environment=env,
+                std_input=std_input,
                 timeout=timeout_s,
                 print_output=print_output,
                 output_is_log=output_is_log,

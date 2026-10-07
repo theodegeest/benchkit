@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   command. Wired into `RunOnceEngine`/`run_once`, `Stepper.run`, and the
   `benchkit.core.compat.new2old` campaign factories, which now support
   `command_attachments` and a `symlink_latest` option.
+- **New API: standard input for executed commands.** `ExecFn`/`shell2exec` and
+  the `ShellFn` protocol accept `stdin=Path(...)`; the file content is
+  forwarded to the command's standard input on both the synchronous and the
+  attachment-instrumented execution paths. `AsyncProcess`/`shell_async`/
+  `background_subprocess` support stdin for local and SSH platforms.
 
 ## [0.0.2] - 2026-05-05
 

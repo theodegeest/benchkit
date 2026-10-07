@@ -27,10 +27,12 @@ class _CmdBench:
         command: List[str],
         ignore_any_error_code: bool = False,
         timeout_s: Optional[int] = None,
+        stdin_path: Optional[Path] = None,
     ) -> None:
         self._command = command
         self._ignore_any_error_code = ignore_any_error_code
         self._timeout_s = timeout_s
+        self._stdin_path = stdin_path
 
     def fetch(self, ctx) -> FetchResult:
         return FetchResult(src_dir=Path.cwd())
@@ -43,6 +45,7 @@ class _CmdBench:
             argv=self._command,
             ignore_any_error_code=self._ignore_any_error_code,
             timeout_s=self._timeout_s,
+            stdin=self._stdin_path,
         )
         return RunResult(outputs=[out])
 
@@ -193,6 +196,35 @@ class TestAttachments(unittest.TestCase):
                     record_dir=Path(tmp),
                     attachments=Attachments(attachments=(_RecordingAttachment(),)),
                 )
+
+    def test_stdin_is_fed_to_command(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            record_dir = Path(tmp)
+            stdin_file = record_dir / "stdin.txt"
+            stdin_file.write_text("hello from stdin\n")
+
+            result = run_once(
+                bench=_CmdBench(["cat"], stdin_path=stdin_file),
+                args={},
+                record_dir=record_dir,
+            )
+
+        self.assertEqual("hello from stdin", result["stdout"])
+
+    def test_stdin_is_fed_to_command_with_attachments(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            record_dir = Path(tmp)
+            stdin_file = record_dir / "stdin.txt"
+            stdin_file.write_text("attached stdin\n")
+
+            result = run_once(
+                bench=_CmdBench(["cat"], stdin_path=stdin_file),
+                args={},
+                record_dir=record_dir,
+                attachments=Attachments(attachments=(_RecordingAttachment(),)),
+            )
+
+        self.assertEqual("attached stdin", result["stdout"])
 
 
 class TestNew2OldAttachments(unittest.TestCase):
