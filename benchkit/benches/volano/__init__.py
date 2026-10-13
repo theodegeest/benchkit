@@ -62,7 +62,6 @@ Example:
     652666
 """
 
-
 import re
 from pathlib import Path
 
@@ -319,8 +318,8 @@ class VolanoBench:
             different package names.
 
         Dependencies include:
-            - jdk21-openjdk: Java 21 Development Kit
+            - openjdk-21-jdk: Java 21 Development Kit
         """
         return [
-            PackageDependency("jdk21-openjdk"),
+            PackageDependency("openjdk-21-jdk"),
         ]
