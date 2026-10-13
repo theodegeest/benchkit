@@ -120,7 +120,7 @@ _BENCHES: dict[str, Splash4Kernel] = {
         binary="VOLREND-NPL",
         args="{n} inputs/head 8",
     ),
-    # --- stdin-based inputs (run via `bash -lc` for the `<` redirection) ---
+    # --- stdin-based inputs (fed through the exec API's `stdin` parameter) ---
     "cholesky": Splash4Kernel(
         subdir="cholesky",
         binary="CHOLESKY",
@@ -227,23 +227,27 @@ class Splash4Bench:
         The kernel recipe is recovered from ``ctx.build_result.other["kernel"]``.
         Threads are passed on the command line (``-p<N>`` or a leading
         positional), not via an environment variable. Benchmarks reading their
-        workload from stdin are run through ``bash -lc`` so the ``<`` redirection
-        works (a first-class stdin parameter on the exec API would remove the
-        shell wrapper).
+        workload from stdin are fed through the exec API's ``stdin`` parameter,
+        so the kernel binary is executed directly rather than through a shell
+        (attachments such as profilers then monitor the kernel itself, not the
+        shell).
         """
         kernel: Splash4Kernel = ctx.build_result.other["kernel"]
         bench_dir = ctx.build_result.build_dir
         size = input_size if input_size is not None else kernel.size
 
-        command = f"./{kernel.binary}"
+        argv = [f"./{kernel.binary}"]
         if kernel.args:
-            command += " " + kernel.args.format(n=nb_threads, size=size)
+            argv += kernel.args.format(n=nb_threads, size=size).split()
+
+        stdin = None
         if kernel.stdin:
-            command += " < " + kernel.stdin.format(n=nb_threads, size=size)
+            stdin = bench_dir / kernel.stdin.format(n=nb_threads, size=size)
 
         exec_out = ctx.exec(
-            argv=["bash", "-lc", command],
+            argv=argv,
             cwd=bench_dir,
+            stdin=stdin,
             output_is_log=True,
         )
         return RunResult(outputs=[exec_out])
