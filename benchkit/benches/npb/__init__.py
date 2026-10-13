@@ -391,7 +391,7 @@ class NPBBench:
     @staticmethod
     def supported_categories() -> list[str]:
         """
-        Return the list of all supported Will-it-scale process tests.
+        Return the list of all supported NPB categories.
         """
         return [
             "OMP",
@@ -401,7 +401,7 @@ class NPBBench:
     @staticmethod
     def supported_classes() -> list[str]:
         """
-        Return the list of all supported Will-it-scale process tests.
+        Return the list of all supported NPB classes.
         """
         return [
             "S",
@@ -417,18 +417,21 @@ class NPBBench:
     @staticmethod
     def supported_tests() -> list[str]:
         """
-        Return the list of all supported Will-it-scale process tests.
+        Return the list of all supported NPB tests.
+
+        The names match the lowercase make targets of the NPB makefiles; the
+        union of the OMP and MPI test directories is returned.
         """
         return [
-            "IS",
-            "EP",
-            "CG",
-            "MG",
-            "FT",
-            "BT-IO",
-            "SP",
-            "LU",
-            "UA",
-            "DC",
-            "DT",
+            "bt",
+            "cg",
+            "dc",
+            "dt",
+            "ep",
+            "ft",
+            "is",
+            "lu",
+            "mg",
+            "sp",
+            "ua",
         ]
