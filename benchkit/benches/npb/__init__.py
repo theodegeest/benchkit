@@ -300,6 +300,7 @@ class NPBBench:
 
         Returns:
             Dictionary containing parsed metrics (when present in the summary block):
+                - kernel: NPB kernel name as printed in the summary block (e.g., "LU", "CG")
                 - class: NPB problem class (e.g., "A", "B", ...)
                 - size: Problem size string (kernel-specific formatting)
                 - iterations: Number of iterations performed
@@ -321,7 +322,7 @@ class NPBBench:
 
         # Match the summary block (whitespace tolerant, order-anchored at "X Benchmark Completed.").
         m = re.search(
-            r"LU\s+Benchmark\s+Completed\.\s*\n"
+            r"(?P<kernel>[A-Za-z][A-Za-z0-9-]*)\s+Benchmark\s+Completed\.\s*\n"
             r"\s*Class\s*=\s*(?P<class>[A-Z])\s*\n"
             r"\s*Size\s*=\s*(?P<size>.+?)\s*\n"
             r"\s*Iterations\s*=\s*(?P<iterations>[0-9]+)\s*\n"
@@ -340,7 +341,7 @@ class NPBBench:
 
         if not m:
             raise ValueError(
-                "Incoherent output from NPB LU (missing 'LU Benchmark Completed' summary block), "
+                "Incoherent output from NPB: no '<KERNEL> Benchmark Completed' block, "
                 f"please check output:\n{command_output}"
             )
 
@@ -353,6 +354,7 @@ class NPBBench:
         compile_date = gd["compile_date"].strip()
 
         return {
+            "kernel": gd["kernel"],
             "class": gd["class"].strip(),
             "size": size,
             "iterations": int(gd["iterations"]),
