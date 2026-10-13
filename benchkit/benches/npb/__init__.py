@@ -192,6 +192,11 @@ class NPBBench:
         build_dir = src_dir / "bin"
         platform.comm.makedirs(path=build_dir, exist_ok=True)
 
+        # Build the shared configuration utility (sys/setparams) sequentially
+        # first: under a parallel make it races with the per-benchmark
+        # npbparams.h rules, which invoke it directly from their recipes.
+        ctx.exec(argv=["make", "-C", "sys"], cwd=src_dir, output_is_log=True)
+
         make(
             ctx,
             src_dir=src_dir,
