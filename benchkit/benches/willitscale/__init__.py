@@ -312,9 +312,13 @@ class WillitscaleBench:
     @staticmethod
     def supported_tests() -> list[str]:
         """
-        Return the list of all supported Will-it-scale process tests.
+        Return the list of all supported Will-it-scale tests.
+
+        The upstream Makefile builds every test in ``tests/*.c`` in two flavors:
+        ``<name>_processes`` (fork-based) and ``<name>_threads`` (pthread-based);
+        both are selectable here.
         """
-        return [
+        processes = [
             "brk1_processes",
             "brk2_processes",
             "context_switch1_processes",
@@ -376,3 +380,4 @@ class WillitscaleBench:
             "writeseek2_processes",
             "writeseek3_processes",
         ]
+        return processes + [f"{test.removesuffix('_processes')}_threads" for test in processes]
