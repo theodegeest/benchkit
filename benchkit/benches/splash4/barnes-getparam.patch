@@ -1,0 +1,14 @@
+diff --git a/Splash-4/barnes/getparam.c.in b/Splash-4/barnes/getparam.c.in
+index 8976b24..cb9d733 100644
+--- a/Splash-4/barnes/getparam.c.in
++++ b/Splash-4/barnes/getparam.c.in
+@@ -52,8 +52,7 @@ string getparam(string name)
+    fgets(buf, 128, stdin);
+    leng = strlen(buf) + 1;
+    buf[leng-1] = '\0';
+-   leng--;
+-   if (leng > 1) {
++   if (leng > 2) {
+       return (strcpy(malloc(leng), buf));
+    }
+    else {

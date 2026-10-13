@@ -37,6 +37,10 @@ from benchkit.utils.fetchtools import git_clone
 SPLASH4_URL = "https://github.com/OdnetninI/Splash-4.git"
 # Pinned to the currently-cloned HEAD ("Fix README"); update as needed.
 SPLASH4_COMMIT = "Splash-4.0.1"
+# Fixes an off-by-one heap overflow in barnes' getparam.c: the shipped
+# ``malloc(strlen(buf))`` is one byte too small for the ``strcpy``, which
+# aborts the benchmark under glibc's _FORTIFY_SOURCE (default on Ubuntu).
+_GETPARAM_PATCH = Path(__file__).parent / "barnes-getparam.patch"
 
 
 @dataclass(frozen=True)
@@ -177,13 +181,14 @@ class Splash4Bench:
         parent_dir: Optional[Path] = None,
         commit: str = SPLASH4_COMMIT,
     ) -> FetchResult:
-        """Clone the SPLASH-4 repository (idempotent via git_clone)."""
+        """Clone the SPLASH-4 repository and apply the bundled fixes."""
         parent_dir = get_benches_dir(parent_dir=parent_dir, comm=ctx.platform.comm)
         repo_dir = git_clone(
             ctx=ctx,
             url=SPLASH4_URL,
             commit=commit,
             parent_dir=parent_dir,
+            patches=[_GETPARAM_PATCH],
         )
         return FetchResult(src_dir=repo_dir)
 
