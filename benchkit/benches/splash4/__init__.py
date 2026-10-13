@@ -321,7 +321,6 @@ class Splash4Bench:
         return [
             PackageDependency("build-essential"),
             PackageDependency("m4"),
-            PackageDependency("ivtools-dev"),
         ]
 
     @staticmethod
