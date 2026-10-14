@@ -65,7 +65,11 @@ class Splash4Kernel:
 
 
 # Inputs follow the README "Recommended Inputs"; adjust sizes per campaign
-# (smaller inputs exist, e.g. barnes ships n8k in addition to n16384).
+# (smaller inputs exist, e.g. barnes ships n8k in addition to n16384). The
+# swept kernels (fft, lu, lu-nc, ocean-nc, radix) are enlarged so each run
+# lasts long enough for the per-thread perf-stat attachment to record the
+# worker threads; cholesky ships no larger input than tk29.O and therefore
+# stays dominated by initialization.
 _BENCHES: dict[str, Splash4Kernel] = {
     # --- argument-based inputs ---
     # -m24 keeps the run around a second: the default -m16 finishes in tens of
@@ -82,31 +86,31 @@ _BENCHES: dict[str, Splash4Kernel] = {
         subdir="radix",
         binary="RADIX",
         args="-p{n} -n{size}",
-        size=1048576,
+        size=33554432,
     ),
     "lu": Splash4Kernel(
         subdir="lu-contiguous_blocks",
         binary="LU-CONT",
         args="-p{n} -n{size}",
-        size=512,
+        size=2560,
     ),
     "lu-nc": Splash4Kernel(
         subdir="lu-non_contiguous_blocks",
         binary="LU-NOCONT",
         args="-p{n} -n{size}",
-        size=512,
+        size=2560,
     ),
     "ocean": Splash4Kernel(
         subdir="ocean-contiguous_partitions",
         binary="OCEAN-CONT",
         args="-p{n} -n{size}",
-        size=258,
+        size=2050,
     ),
     "ocean-nc": Splash4Kernel(
         subdir="ocean-non_contiguous_partitions",
         binary="OCEAN-NOCONT",
         args="-p{n} -n{size}",
-        size=258,
+        size=2050,
     ),
     "radiosity": Splash4Kernel(
         subdir="radiosity",
@@ -133,7 +137,7 @@ _BENCHES: dict[str, Splash4Kernel] = {
         subdir="cholesky",
         binary="CHOLESKY",
         args="-p{n}",
-        stdin="inputs/tk15.O",
+        stdin="inputs/tk29.O",
     ),
     "barnes": Splash4Kernel(
         subdir="barnes",
