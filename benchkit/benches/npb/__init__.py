@@ -325,9 +325,10 @@ class NPBBench:
         """
         command_output = ctx.run_result.outputs[-1].stdout
 
-        # Match the summary block (whitespace tolerant, order-anchored at "X Benchmark Completed.").
+        # Match the summary block (whitespace tolerant, order-anchored at
+        # "X Benchmark Completed"; NPB prints it without a trailing period).
         m = re.search(
-            r"(?P<kernel>[A-Za-z][A-Za-z0-9-]*)\s+Benchmark\s+Completed\.\s*\n"
+            r"(?P<kernel>[A-Za-z][A-Za-z0-9-]*)\s+Benchmark\s+Completed\.?\s*\n"
             r"\s*Class\s*=\s*(?P<class>[A-Z])\s*\n"
             r"\s*Size\s*=\s*(?P<size>.+?)\s*\n"
             r"\s*Iterations\s*=\s*(?P<iterations>[0-9]+)\s*\n"

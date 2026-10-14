@@ -68,11 +68,15 @@ class Splash4Kernel:
 # (smaller inputs exist, e.g. barnes ships n8k in addition to n16384).
 _BENCHES: dict[str, Splash4Kernel] = {
     # --- argument-based inputs ---
+    # -m24 keeps the run around a second: the default -m16 finishes in tens of
+    # milliseconds, the per-thread perf-stat attachment of the thread profiler
+    # misses the worker threads and the derived CPI/frequency components end up
+    # empty.
     "fft": Splash4Kernel(
         subdir="fft",
         binary="FFT",
         args="-p{n} -m{size}",
-        size=16,
+        size=24,
     ),
     "radix": Splash4Kernel(
         subdir="radix",
