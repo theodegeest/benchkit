@@ -24,7 +24,7 @@ Structure of this bench (mirrors ``benchkit/benches/npb``):
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 from benchkit.core.bktypes import RecordResult
 from benchkit.core.bktypes.callresults import BuildResult, FetchResult, RunResult
@@ -62,6 +62,35 @@ class Splash4Kernel:
     args: str = ""
     size: Optional[int] = None
     stdin: Optional[str] = None
+    # PARSEC-style input size levels: level 1 (the default) is the smallest,
+    # larger levels make the run longer (more parallel work and better
+    # per-thread perf-stat counters).
+    sizes: Optional[Dict[int, int]] = None
+    stdins: Optional[Dict[int, str]] = None
+
+    def resolve_size(self, level: int) -> Optional[int]:
+        """Return the input size for a level (1 is the smallest/default)."""
+        if self.sizes is None:
+            return self.size
+        try:
+            return self.sizes[level]
+        except KeyError:
+            raise ValueError(
+                f"input size level {level} is not defined for this benchmark "
+                f"(available levels: {sorted(self.sizes)})"
+            ) from None
+
+    def resolve_stdin(self, level: int) -> Optional[str]:
+        """Return the stdin template for a level (1 is the smallest/default)."""
+        if self.stdins is None:
+            return self.stdin
+        try:
+            return self.stdins[level]
+        except KeyError:
+            raise ValueError(
+                f"input size level {level} is not defined for this benchmark "
+                f"(available levels: {sorted(self.stdins)})"
+            ) from None
 
 
 # Inputs follow the README "Recommended Inputs"; adjust sizes per campaign
@@ -80,37 +109,37 @@ _BENCHES: dict[str, Splash4Kernel] = {
         subdir="fft",
         binary="FFT",
         args="-p{n} -m{size}",
-        size=24,
+        sizes={1: 24, 2: 26, 3: 28},
     ),
     "radix": Splash4Kernel(
         subdir="radix",
         binary="RADIX",
         args="-p{n} -n{size}",
-        size=33554432,
+        sizes={1: 33554432, 2: 67108864, 3: 134217728, 4: 268435456},
     ),
     "lu": Splash4Kernel(
         subdir="lu-contiguous_blocks",
         binary="LU-CONT",
         args="-p{n} -n{size}",
-        size=2560,
+        sizes={1: 2560, 2: 3072, 3: 3584, 4: 4096},
     ),
     "lu-nc": Splash4Kernel(
         subdir="lu-non_contiguous_blocks",
         binary="LU-NOCONT",
         args="-p{n} -n{size}",
-        size=2560,
+        sizes={1: 2560, 2: 3072, 3: 3584, 4: 4096},
     ),
     "ocean": Splash4Kernel(
         subdir="ocean-contiguous_partitions",
         binary="OCEAN-CONT",
         args="-p{n} -n{size}",
-        size=2050,
+        sizes={1: 2050, 2: 4098, 3: 8194},
     ),
     "ocean-nc": Splash4Kernel(
         subdir="ocean-non_contiguous_partitions",
         binary="OCEAN-NOCONT",
         args="-p{n} -n{size}",
-        size=2050,
+        sizes={1: 2050, 2: 4098, 3: 8194},
     ),
     "radiosity": Splash4Kernel(
         subdir="radiosity",
@@ -137,7 +166,7 @@ _BENCHES: dict[str, Splash4Kernel] = {
         subdir="cholesky",
         binary="CHOLESKY",
         args="-p{n}",
-        stdin="inputs/tk29.O",
+        stdins={1: "inputs/tk29.O"},
     ),
     "barnes": Splash4Kernel(
         subdir="barnes",
@@ -247,15 +276,17 @@ class Splash4Bench:
         """
         kernel: Splash4Kernel = ctx.build_result.other["kernel"]
         bench_dir = ctx.build_result.build_dir
-        size = input_size if input_size is not None else kernel.size
+        level = 1 if input_size is None else int(input_size)
+        size = kernel.resolve_size(level)
 
         argv = [f"./{kernel.binary}"]
         if kernel.args:
             argv += kernel.args.format(n=nb_threads, size=size).split()
 
         stdin = None
-        if kernel.stdin:
-            stdin = bench_dir / kernel.stdin.format(n=nb_threads, size=size)
+        stdin_pattern = kernel.resolve_stdin(level)
+        if stdin_pattern:
+            stdin = bench_dir / stdin_pattern.format(n=nb_threads, size=size)
 
         exec_out = ctx.exec(
             argv=argv,
