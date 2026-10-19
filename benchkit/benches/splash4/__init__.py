@@ -24,7 +24,7 @@ Structure of this bench (mirrors ``benchkit/benches/npb``):
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from benchkit.core.bktypes import RecordResult
 from benchkit.core.bktypes.callresults import BuildResult, FetchResult, RunResult
@@ -67,6 +67,13 @@ class Splash4Kernel:
     # per-thread perf-stat counters).
     sizes: Optional[Dict[int, int]] = None
     stdins: Optional[Dict[int, str]] = None
+    # Missing per-(size, thread count) stdin files are generated at run time
+    # from their matching PARSEC-class template: gen_templates[size] names the
+    # template and gen_size_field/gen_nproc_field locate the workload-size and
+    # NPROC tokens as ((line, token), 0-based).
+    gen_templates: Optional[Dict[int, str]] = None
+    gen_size_field: Optional[Tuple[int, int]] = None
+    gen_nproc_field: Optional[Tuple[int, int]] = None
 
     def resolve_size(self, level: int) -> Optional[int]:
         """Return the input size for a level (1 is the smallest/default)."""
@@ -133,33 +140,39 @@ _BENCHES: dict[str, Splash4Kernel] = {
         subdir="ocean-contiguous_partitions",
         binary="OCEAN-CONT",
         args="-p{n} -n{size}",
-        sizes={1: 2050, 2: 4098, 3: 8194},
+        # Splash-4 rejects grids above 4098 (IMAX is 8098; 8194 would abort).
+        sizes={1: 2050, 2: 4098},
     ),
     "ocean-nc": Splash4Kernel(
         subdir="ocean-non_contiguous_partitions",
         binary="OCEAN-NOCONT",
         args="-p{n} -n{size}",
-        sizes={1: 2050, 2: 4098, 3: 8194},
+        # Splash-4 rejects grids above 4098 (IMAX is 8098; 8194 would abort).
+        sizes={1: 2050, 2: 4098},
     ),
     "radiosity": Splash4Kernel(
         subdir="radiosity",
         binary="RADIOSITY",
-        args="-p {n} -ae 5000 -bf 0.1 -en 0.05 -room -batch",
+        args="-p {n} -bf {size} -batch -largeroom",
+        sizes={1: "1.5e-2", 5: "6e-4", 6: "1.5e-4"},
     ),
     "raytrace": Splash4Kernel(
         subdir="raytrace",
         binary="RAYTRACE",
-        args="-p{n} -m64 inputs/car.env",
+        args="-p{n} -a{size} -m64 inputs/car.env",
+        sizes={1: 4, 5: 2048, 6: 4096},
     ),
     "volrend": Splash4Kernel(
         subdir="volrend",
         binary="VOLREND",
-        args="{n} inputs/head 8",
+        args="{n} inputs/head {size}",
+        sizes={1: 8, 2: 16, 3: 32, 4: 64, 5: 128, 6: 256},
     ),
     "volrend-npl": Splash4Kernel(
         subdir="volrend-no_print_lock",
         binary="VOLREND-NPL",
-        args="{n} inputs/head 8",
+        args="{n} inputs/head {size}",
+        sizes={1: 8, 2: 16, 3: 32, 4: 64, 5: 384, 6: 768},
     ),
     # --- stdin-based inputs (fed through the exec API's `stdin` parameter) ---
     "cholesky": Splash4Kernel(
@@ -173,24 +186,56 @@ _BENCHES: dict[str, Splash4Kernel] = {
         binary="BARNES",
         size=16384,
         stdin="inputs/n{size}-p{n}",
+        sizes={1: 8192, 2: 16384, 3: 2000000, 4: 4194304},
+        gen_templates={
+            8192: "inputs/n16384-p1",
+            2000000: "inputs/parsec_native",
+            4194304: "inputs/parsec_native",
+        },
+        gen_size_field=(1, 0),
+        gen_nproc_field=(11, 0),
     ),
     "fmm": Splash4Kernel(
         subdir="fmm",
         binary="FMM",
         size=16384,
         stdin="inputs/input.{n}.{size}",
+        sizes={1: 16384, 2: 65536, 3: 4194304, 4: 4194304},
+        gen_templates={
+            65536: "inputs/parsec_native",
+            4194304: "inputs/parsec_native",
+        },
+        gen_size_field=(2, 0),
+        gen_nproc_field=(4, 0),
     ),
+    # water-nsquared: the molecule count must be a perfect cube (the lattice
+    # is NS**3, "NS = pow(NMOL, 1/3)" in initia.c); anything else segfaults.
     "water-nsq": Splash4Kernel(
         subdir="water-nsquared",
         binary="WATER-NSQUARED",
         size=512,
         stdin="inputs/n{size}-p{n}",
+        sizes={1: 512, 2: 3375, 3: 10648, 4: 32768},
+        gen_templates={
+            3375: "inputs/parsec_simmedium",
+            10648: "inputs/parsec_native",
+            32768: "inputs/parsec_native",
+        },
+        gen_size_field=(0, 1),
+        gen_nproc_field=(2, 0),
     ),
     "water-sp": Splash4Kernel(
         subdir="water-spatial",
         binary="WATER-SPATIAL",
         size=512,
         stdin="inputs/n{size}-p{n}",
+        sizes={1: 512, 2: 8000, 3: 1000000, 4: 1000000},
+        gen_templates={
+            8000: "inputs/parsec_simmedium",
+            1000000: "inputs/parsec_native",
+        },
+        gen_size_field=(0, 1),
+        gen_nproc_field=(2, 0),
     ),
 }
 
@@ -287,6 +332,13 @@ class Splash4Bench:
         stdin_pattern = kernel.resolve_stdin(level)
         if stdin_pattern:
             stdin = bench_dir / stdin_pattern.format(n=nb_threads, size=size)
+            self._ensure_stdin(
+                bench_dir=bench_dir,
+                kernel=kernel,
+                nb_threads=nb_threads,
+                size=size,
+                stdin_path=stdin,
+            )
 
         exec_out = ctx.exec(
             argv=argv,
@@ -295,6 +347,37 @@ class Splash4Bench:
             output_is_log=True,
         )
         return RunResult(outputs=[exec_out])
+
+    @staticmethod
+    def _ensure_stdin(
+        bench_dir: Path,
+        kernel: Splash4Kernel,
+        nb_threads: int,
+        size: int,
+        stdin_path: Path,
+    ) -> None:
+        """Generate the stdin file when the repository does not ship it.
+
+        The repository ships per-(size, thread count) input files only for the
+        small default sizes; barnes/fmm/water-* inputs encode the thread count
+        (NPROC) inside the file, so a missing combination cannot be faked by
+        copying another thread count's file. The file is rebuilt from the
+        matching PARSEC-class template by rewriting the workload-size and NPROC
+        fields.
+        """
+        if kernel.gen_templates is None or stdin_path.exists():
+            return
+        template_path = kernel.gen_templates.get(size)
+        if template_path is None:
+            return
+        lines = (bench_dir / template_path).read_text().splitlines()
+        fields = ((kernel.gen_size_field, size), (kernel.gen_nproc_field, nb_threads))
+        for field, value in fields:
+            line_idx, token_idx = field
+            tokens = lines[line_idx].split()
+            tokens[token_idx] = str(value)
+            lines[line_idx] = " ".join(tokens)
+        stdin_path.write_text("\n".join(lines) + "\n")
 
     def collect(self, ctx: CollectContext) -> RecordResult:
         """
