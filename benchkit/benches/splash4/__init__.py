@@ -166,7 +166,7 @@ _BENCHES: dict[str, Splash4Kernel] = {
         subdir="volrend",
         binary="VOLREND",
         args="{n} inputs/head {size}",
-        sizes={1: 8, 2: 16, 3: 32, 4: 64, 5: 128, 6: 256},
+        sizes={1: 8, 2: 16, 3: 32, 4: 64, 5: 128, 6: 256, 7: 512, 8: 640},
     ),
     "volrend-npl": Splash4Kernel(
         subdir="volrend-no_print_lock",
@@ -215,10 +215,12 @@ _BENCHES: dict[str, Splash4Kernel] = {
         binary="WATER-NSQUARED",
         size=512,
         stdin="inputs/n{size}-p{n}",
-        sizes={1: 512, 2: 3375, 3: 10648, 4: 32768},
+        sizes={1: 512, 2: 3375, 3: 10648, 4: 32768, 5: 15625, 6: 19683},
         gen_templates={
             3375: "inputs/parsec_simmedium",
             10648: "inputs/parsec_native",
+            15625: "inputs/parsec_native",
+            19683: "inputs/parsec_native",
             32768: "inputs/parsec_native",
         },
         gen_size_field=(0, 1),
