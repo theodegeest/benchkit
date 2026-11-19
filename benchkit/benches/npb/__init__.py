@@ -70,7 +70,7 @@ Example:
 
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
 from benchkit.core.bktypes import RecordResult
 from benchkit.core.bktypes.callresults import BuildResult, FetchResult, RunResult
@@ -78,6 +78,78 @@ from benchkit.core.bktypes.contexts import BuildContext, CollectContext, FetchCo
 from benchkit.dependencies.packages import PackageDependency
 from benchkit.utils.buildtools import make
 from benchkit.utils.fetchtools import curl, tar_extract
+
+# Problem classes whose data structures exceed the default code model of the
+# kernels compiled from C.  IS class D allocates more than 4 GiB of static
+# arrays, so its objects need the large code model to link at all.
+LARGE_MODEL_CLASSES: Tuple[str, ...] = ("D", "E")
+
+# Kernels that need the large code model at the classes above.  Only IS is
+# affected today; the Fortran kernels (cg, ft, mg, ...) are fine because gfortran
+# handles large static arrays with the default model.
+LARGE_MODEL_KERNELS: Tuple[str, ...] = ("is",)
+
+
+def large_model_flags(
+    test_name: str,
+    t_class: str,
+    architecture: str,
+) -> Tuple[List[str], List[str]]:
+    """
+    Return the extra compile and link flags needed for a large problem class.
+
+    The default (small) code model cannot address the static arrays that some
+    kernels allocate at classes D and E, and the link fails with truncated
+    relocations (``R_X86_64_PC32`` on x86_64).  The large code model lifts that
+    limit on x86_64.  On AArch64 the large model is only available for non-PIC
+    code, and the prebuilt out-of-line atomics helpers in libgcc cannot reach
+    those arrays either, so they are disabled as well.
+
+    Args:
+        test_name: NPB kernel name (e.g., ``"is"``).
+        t_class: NPB problem class (e.g., ``"C"``, ``"D"``, ``"E"``).
+        architecture: Target architecture as reported by ``uname -m``.
+
+    Returns:
+        A ``(compile_flags, link_flags)`` pair.  Both lists are empty when the
+        kernel and class combination builds with the default code model.
+    """
+    if test_name not in LARGE_MODEL_KERNELS or t_class not in LARGE_MODEL_CLASSES:
+        return [], []
+
+    compile_flags = ["-mcmodel=large"]
+    link_flags = ["-mcmodel=large"]
+
+    if architecture in ("aarch64", "arm64"):
+        compile_flags += ["-fno-PIC", "-fno-pie", "-mno-outline-atomics"]
+        link_flags += ["-no-pie", "-mno-outline-atomics"]
+
+    return compile_flags, link_flags
+
+
+def append_make_def_flags(content: str, variable: str, flags: List[str]) -> str:
+    """
+    Append flags to a variable definition of an NPB ``make.def`` file.
+
+    Args:
+        content: Full content of the ``make.def`` file.
+        variable: Name of the make variable to extend (e.g., ``"CFLAGS"``).
+        flags: Flags appended to the existing value of the variable.
+
+    Returns:
+        The content with the variable definition extended.  The content is
+        returned unchanged when ``flags`` is empty or the variable is absent.
+    """
+    if not flags:
+        return content
+
+    pattern = re.compile(rf"^{variable}\s*=.*$", re.MULTILINE)
+    extra = " ".join(flags)
+    return pattern.sub(
+        lambda match: f"{match.group(0)} {extra}",
+        content,
+        count=1,
+    )
 
 
 class NPBBench:
@@ -158,7 +230,8 @@ class NPBBench:
         class using ``make``.
 
         Concretely, it performs:
-          1) Copy ``config/make.def.template`` -> ``config/make.def`` (default config)
+          1) Copy ``config/make.def.template`` -> ``config/make.def`` (default config,
+             extended with the code-model flags that large classes need)
           2) Ensure the output directory exists (typically ``bin/``)
           3) Run ``make <test_name> CLASS=<t_class>`` in the selected NPB source tree
 
@@ -184,6 +257,26 @@ class NPBBench:
         config_tpl_file = config_dir / "make.def.template"
         config_file = config_dir / "make.def"
         config_content = platform.comm.read_file(path=config_tpl_file)
+
+        # Some kernels need the large code model at the biggest classes,
+        # otherwise their static arrays do not fit in the default model and
+        # the link fails with truncated relocations.
+        compile_flags, link_flags = large_model_flags(
+            test_name=test_name,
+            t_class=t_class,
+            architecture=platform.architecture,
+        )
+        config_content = append_make_def_flags(
+            content=config_content,
+            variable="CFLAGS",
+            flags=compile_flags,
+        )
+        config_content = append_make_def_flags(
+            content=config_content,
+            variable="CLINKFLAGS",
+            flags=link_flags,
+        )
+
         platform.comm.write_content_to_file(
             content=config_content,
             output_filename=config_file,
